@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XyloLab 3D – Sayatan Tiga Bidang Kayu</title>
+<style>
+:root{--ink:#2b2118;--bg:#f6efe4;--card:#fffaf2;--line:#e0d2bc;--acc:#8a4b1f;--acc2:#2f6f5e;--mut:#6f6050}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:14px 20px;background:var(--acc);color:#fff}
+header h1{margin:0;font-size:1.25rem}
+header p{margin:2px 0 0;font-size:.85rem;opacity:.9}
+main{display:grid;grid-template-columns:minmax(320px,1.1fr) minmax(300px,1fr);gap:16px;padding:16px;max-width:1200px;margin:0 auto}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h2{margin:0 0 8px;font-size:1rem;color:var(--acc)}
+#stage{position:relative;height:340px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#fff,#eadfcc);touch-action:none;cursor:grab;perspective:900px;display:flex;align-items:center;justify-content:center}
+#stage.ar{background:#000}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+#stage.ar #cam{display:block}
+#scene{width:200px;height:200px;position:relative;transform-style:preserve-3d;z-index:2}
+.face{position:absolute;width:200px;height:200px;border:2px solid #5a3b1d;backface-visibility:hidden;overflow:hidden}
+.face svg{width:100%;height:100%;display:block}
+.face .tag{position:absolute;left:6px;top:6px;background:rgba(43,33,24,.78);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px}
+.f-front{transform:translateZ(100px)}
+.f-back{transform:rotateY(180deg) translateZ(100px)}
+.f-right{transform:rotateY(90deg) translateZ(100px)}
+.f-left{transform:rotateY(-90deg) translateZ(100px)}
+.f-top{transform:rotateX(90deg) translateZ(100px)}
+.f-bottom{transform:rotateX(-90deg) translateZ(100px)}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+button{font:inherit;border:1px solid var(--acc);background:#fff;color:var(--acc);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:.85rem}
+button:hover{background:#f3e3d1}
+button.on{background:var(--acc);color:#fff}
+.hint{font-size:.78rem;color:var(--mut);margin-top:6px}
+#info h3{margin:.2rem 0;font-size:1rem}
+#info ul{margin:.3rem 0 0 1.1rem;padding:0;font-size:.9rem;line-height:1.45}
+#micro{width:100%;max-width:300px;aspect-ratio:1;border-radius:50%;border:3px solid #444;background:#fff;display:block;margin:8px auto 0;overflow:hidden}
+#chat{height:230px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:.88rem}
+.msg{margin:6px 0;padding:6px 9px;border-radius:9px;max-width:92%;line-height:1.4}
+.bot{background:#e6f2ee;border:1px solid #c5ded6}
+.me{background:#f3e3d1;margin-left:auto}
+#ask{display:flex;gap:6px;margin-top:8px}
+#ask input{flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit}
+.badge{display:inline-block;font-size:.7rem;background:#fff3cd;border:1px solid #e5cf80;border-radius:6px;padding:1px 6px;margin-left:6px;color:#6b5400}
+#quiz .opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+#quizimg{width:200px;height:200px;border:2px solid #5a3b1d;border-radius:8px;display:block;margin:6px 0;background:#fff}
+#score{font-weight:600;color:var(--acc2)}
+footer{max-width:1200px;margin:0 auto;padding:4px 16px 20px;font-size:.78rem;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>XyloLab 3D – Mengenal Tiga Bidang Sayatan Kayu</h1>
+  <p>Media pembelajaran interaktif Anatomi Kayu · AR/VR berbasis web + tutor Generative AI</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1. Putar blok kayu 3D</h2>
+    <div id="stage" aria-label="Blok kayu 3D yang dapat diputar">
+      <video id="cam" autoplay playsinline muted></video>
+      <div id="scene"></div>
+    </div>
+    <div class="row">
+      <button data-go="top">Transversal</button>
+      <button data-go="front">Radial</button>
+      <button data-go="right">Tangensial</button>
+      <button id="btnIso">Tampilan 3D</button>
+      <button id="btnAR">Mode AR (kamera)</button>
+      <button id="btnGyro">Mode VR-gyro</button>
+    </div>
+    <p class="hint">Geser/seret untuk memutar. Ketuk salah satu tombol bidang untuk melihat bidang itu langsung. Mode AR menampilkan blok di atas kamera HP; Mode VR-gyro memutar blok mengikuti gerakan HP.</p>
+
+    <div id="info" style="margin-top:10px"></div>
+  </section>
+
+  <section>
+    <div class="card" style="margin-bottom:16px">
+      <h2>2. Lensa mikroskop</h2>
+      <p class="hint" style="margin-top:0">Perbesaran skematis dari bidang yang sedang dipilih.</p>
+      <div class="row"><button id="zin">Perbesar</button><button id="zout">Perkecil</button></div>
+      <svg id="micro" viewBox="0 0 300 300"></svg>
+      <p class="hint" id="mcap" style="text-align:center"></p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h2>3. Tutor AI <span class="badge">prototipe: respons disimulasikan</span></h2>
+      <div id="chat" aria-live="polite"></div>
+      <div id="ask">
+        <input id="q" placeholder="Tanya, mis. 'Bedanya pori dan jari-jari?'">
+        <button id="send">Kirim</button>
+      </div>
+      <div class="row" id="chips"></div>
+    </div>
+
+    <div class="card" id="quiz">
+      <h2>4. Uji kemampuan: bidang apa ini?</h2>
+      <svg id="quizimg" viewBox="0 0 200 200"></svg>
+      <div class="opts">
+        <button data-a="top">Transversal</button>
+        <button data-a="front">Radial</button>
+        <button data-a="right">Tangensial</button>
+      </div>
+      <p id="score">Skor: 0 / 0</p>
+    </div>
+  </section>
+</main>
+<footer>Ilustrasi bersifat skematis untuk pembelajaran, bukan foto spesimen. Prototipe ini dibuat untuk Mini Project Pengembangan Media Pembelajaran Interaktif.</footer>
+
+<script>
+/* ---------- util ---------- */
+function rng(seed){let s=seed;return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646}}
+const C={bg:'#e8c99a',dark:'#b98a52',mid:'#d3a96e',pore:'#6b4423',ray:'#f4e2c0'};
+
+/* ---------- tekstur bidang (SVG) ---------- */
+function texTop(seed=1){ // transversal
+  const r=rng(seed);let s=`<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" fill="${C.bg}"/>`;
+  const cx=-20,cy=220;
+  for(let i=0;i<12;i++){const rad=40+i*17;
+    s+=`<circle cx="${cx}" cy="${cy}" r="${rad}" fill="none" stroke="${C.dark}" stroke-width="${3+r()*2}" opacity=".75"/>`;}
+  for(let a=-10;a<=80;a+=5){const t=a*Math.PI/180;
+    s+=`<line x1="${cx+Math.cos(t)*30}" y1="${cy-Math.sin(t)*30}" x2="${cx+Math.cos(t)*320}" y2="${cy-Math.sin(t)*320}" stroke="${C.ray}" stroke-width="1.2" opacity=".9"/>`;}
+  for(let i=0;i<150;i++){const x=r()*200,y=r()*200;
+    s+=`<ellipse cx="${x}" cy="${y}" rx="${1.3+r()*1.5}" ry="${1.5+r()*1.7}" fill="${C.pore}"/>`;}
+  return s+'</svg>';
+}
+function texFront(seed=2){ // radial
+  const r=rng(seed);let s=`<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" fill="${C.bg}"/>`;
+  let x=0;while(x<200){const w=6+r()*12;
+    s+=`<rect x="${x}" y="0" width="${w}" height="200" fill="${r()>.5?C.mid:C.bg}"/><line x1="${x}" y1="0" x2="${x}" y2="200" stroke="${C.dark}" stroke-width="1.6" opacity=".7"/>`;x+=w;}
+  for(let i=0;i<70;i++){const px=r()*198,py=r()*190;
+    s+=`<line x1="${px}" y1="${py}" x2="${px}" y2="${py+4+r()*14}" stroke="${C.pore}" stroke-width="1.2"/>`;}
+  for(let i=0;i<34;i++){const px=r()*170,py=r()*190;
+    s+=`<rect x="${px}" y="${py}" width="${14+r()*26}" height="${3+r()*3}" rx="1" fill="${C.ray}" stroke="${C.dark}" stroke-width=".4"/>`;}
+  return s+'</svg>';
+}
+function texRight(seed=3){ // tangensial
+  const r=rng(seed);let s=`<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" fill="${C.bg}"/>`;
+  for(let i=0;i<9;i++){const y=210-i*26;
+    s+=`<path d="M-10 ${y} Q100 ${y-120} 210 ${y}" fill="none" stroke="${C.dark}" stroke-width="${2+r()*2}" opacity=".7"/>`;}
+  for(let i=0;i<60;i++){const px=r()*198,py=r()*190;
+    s+=`<line x1="${px}" y1="${py}" x2="${px}" y2="${py+5+r()*12}" stroke="${C.pore}" stroke-width="1.2"/>`;}
+  for(let i=0;i<46;i++){const px=r()*190,py=r()*185;const h=8+r()*12;
+    s+=`<ellipse cx="${px}" cy="${py}" rx="${1.6+r()*1.8}" ry="${h/2}" fill="${C.ray}" stroke="${C.dark}" stroke-width=".5"/>`;}
+  return s+'</svg>';
+}
+const TEX={top:texTop,front:texFront,right:texRight};
+
+/* ---------- mikroskop skematis ---------- */
+function microSVG(p,scale){
+  const r=rng(7);let s=`<g transform="translate(150 150) scale(${scale}) translate(-150 -150)">`;
+  if(p==='top'){ // transversal: serat + pori + parenkim + jari-jari
+    s+=`<rect width="300" height="300" fill="#f0d9b0"/>`;
+    for(let y=0;y<300;y+=9)for(let x=((y/9)%2)*5;x<300;x+=10)
+      s+=`<rect x="${x}" y="${y}" width="8" height="7" fill="#e3bf86" stroke="#a97a43" stroke-width=".7"/>`;
+    for(let k=0;k<5;k++){const x=40+k*55+r()*10;
+      s+=`<rect x="${x}" y="0" width="9" height="300" fill="#f9ecd0" stroke="#a97a43" stroke-width=".6"/>`;}
+    for(let i=0;i<14;i++){const x=20+r()*260,y=20+r()*260;
+      s+=`<ellipse cx="${x}" cy="${y}" rx="${11+r()*5}" ry="${12+r()*5}" fill="#fff8ea" stroke="#5b3a1c" stroke-width="2"/>`;}
+  }else if(p==='front'){ // radial: pembuluh memanjang + jari-jari seperti pita
+    s+=`<rect width="300" height="300" fill="#f0d9b0"/>`;
+    for(let k=0;k<5;k++){const x=30+k*58+r()*8;
+      s+=`<rect x="${x}" y="0" width="14" height="300" fill="#fff8ea" stroke="#5b3a1c" stroke-width="1.6"/>`;
+      for(let y=40;y<300;y+=70)s+=`<line x1="${x}" y1="${y}" x2="${x+14}" y2="${y}" stroke="#5b3a1c" stroke-width="1"/>`;}
+    for(let b=0;b<4;b++){const y=40+b*70+r()*10;
+      for(let c=0;c<14;c++)s+=`<rect x="${c*22}" y="${y}" width="22" height="9" fill="#f4e2c0" stroke="#a97a43" stroke-width=".8"/>`;
+      for(let c=0;c<14;c++)s+=`<rect x="${c*22}" y="${y+9}" width="22" height="9" fill="#f9ecd0" stroke="#a97a43" stroke-width=".8"/>`;}
+  }else{ // tangensial: jari-jari bentuk lensa
+    s+=`<rect width="300" height="300" fill="#f0d9b0"/>`;
+    for(let k=0;k<4;k++){const x=30+k*70+r()*10;
+      s+=`<rect x="${x}" y="0" width="12" height="300" fill="#fff8ea" stroke="#5b3a1c" stroke-width="1.6"/>`;}
+    const pos=[[60,60,1],[150,70,3],[240,50,2],[100,150,3],[200,160,1],[40,230,2],[150,240,3],[250,220,1]];
+    pos.forEach(([x,y,n])=>{const h=26+n*10;
+      s+=`<ellipse cx="${x}" cy="${y}" rx="${5+n*4}" ry="${h}" fill="#f4e2c0" stroke="#7a4f27" stroke-width="1.4"/>`;
+      for(let i=0;i<n*2+1;i++)s+=`<circle cx="${x+(i%2?-1:1)*n*2}" cy="${y-h+8+i*(2*h-16)/(n*2)}" r="${3+n*.5}" fill="none" stroke="#a97a43" stroke-width=".8"/>`;});
+  }
+  return s+'</g>';
+}
+
+/* ---------- data materi ---------- */
+const INFO={
+  top:{n:'Bidang Transversal (lintang)',d:'Irisan tegak lurus sumbu batang. Bidang paling informatif untuk identifikasi.',
+    p:['Lingkaran tumbuh tampak sebagai lengkung konsentris','Pori (penampang pembuluh) tampak sebagai lubang bulat atau oval; perhatikan ukuran, jumlah, dan penyebarannya','Jari-jari tampak sebagai garis lurus yang menyebar dari pusat','Parenkim dan serat dapat dibedakan dari susunan dan tebal dindingnya']},
+  front:{n:'Bidang Radial',d:'Irisan sejajar sumbu batang dan melewati pusat (empulur).',
+    p:['Lingkaran tumbuh tampak sebagai garis-garis sejajar','Pembuluh tampak memanjang seperti alur','Jari-jari tampak sebagai pita yang melintang tegak lurus serat','Cocok untuk melihat tinggi dan susunan sel jari-jari']},
+  right:{n:'Bidang Tangensial',d:'Irisan sejajar sumbu batang, tegak lurus jari-jari.',
+    p:['Lingkaran tumbuh tampak sebagai pola lengkung seperti kubah (cathedral)','Jari-jari tampak sebagai bentuk lensa atau gelendong','Dari sini jari-jari dapat dihitung jumlah lapisan selnya (uniseriate atau multiseriate)','Cocok untuk melihat tinggi dan lebar jari-jari']}
+};
+const POSE={top:[-90,0],front:[0,0],right:[0,-90],iso:[-25,-35]}; // rotX, rotY
+
+/* ---------- scene ---------- */
+const scene=document.getElementById('scene'),stage=document.getElementById('stage');
+const faces=[['front','Radial'],['right','Tangensial'],['top','Transversal'],['back',''],['left',''],['bottom','']];
+const src={front:'front',right:'right',top:'top',back:'front',left:'right',bottom:'top'};
+faces.forEach(([k,t],i)=>{const d=document.createElement('div');d.className='face f-'+k;
+  d.innerHTML=TEX[src[k]](i+1)+(t?`<span class="tag">${t}</span>`:'');scene.appendChild(d);});
+let rx=-25,ry=-35,cur='top',zoom=1,auto=true;
+function apply(){scene.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`}
+function go(p){const [x,y]=POSE[p];animateTo(x,y);if(p!=='iso')select(p);}
+let anim;function animateTo(x,y){cancelAnimationFrame(anim);const sx=rx,sy=ry,t0=performance.now();
+  const f=t=>{const k=Math.min(1,(t-t0)/600),e=1-Math.pow(1-k,3);rx=sx+(x-sx)*e;ry=sy+(y-sy)*e;apply();if(k<1)anim=requestAnimationFrame(f)};anim=requestAnimationFrame(f)}
+apply();
+let drag=null;
+stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};stage.setPointerCapture(e.pointerId);stage.style.cursor='grabbing'});
+stage.addEventListener('pointermove',e=>{if(!drag)return;ry+=(e.clientX-drag.x)*.6;rx-=(e.clientY-drag.y)*.6;drag={x:e.clientX,y:e.clientY};apply()});
+stage.addEventListener('pointerup',()=>{drag=null;stage.style.cursor='grab'});
+
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+document.getElementById('btnIso').onclick=()=>go('iso');
+
+/* ---------- panel info + mikroskop ---------- */
+function select(p){cur=p;const i=INFO[p];
+  document.getElementById('info').innerHTML=`<h3>${i.n}</h3><p style="margin:.2rem 0;font-size:.9rem">${i.d}</p><ul>${i.p.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+  document.querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('on',b.dataset.go===p));
+  drawMicro();}
+const CAP={top:'Pori, jari-jari (garis pucat), dan serat',front:'Pembuluh memanjang dan jari-jari seperti pita',right:'Jari-jari berbentuk lensa (1, 2, atau 3 lapis sel)'};
+function drawMicro(){document.getElementById('micro').innerHTML=microSVG(cur,zoom);document.getElementById('mcap').textContent=CAP[cur]}
+document.getElementById('zin').onclick=()=>{zoom=Math.min(2.5,zoom+.3);drawMicro()};
+document.getElementById('zout').onclick=()=>{zoom=Math.max(.7,zoom-.3);drawMicro()};
+select('top');
+
+/* ---------- AR kamera & gyro ---------- */
+let stream=null;
+document.getElementById('btnAR').onclick=async function(){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;stage.classList.remove('ar');this.classList.remove('on');return}
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    document.getElementById('cam').srcObject=stream;stage.classList.add('ar');this.classList.add('on');
+  }catch(e){bot('Kamera tidak dapat diakses. Pastikan izin kamera diberikan dan halaman dibuka lewat https.')}
+};
+let gyro=false;
+document.getElementById('btnGyro').onclick=async function(){
+  if(gyro){gyro=false;this.classList.remove('on');return}
+  try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission){
+      const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted')throw 0}
+    gyro=true;this.classList.add('on');
+  }catch(e){bot('Sensor gerak tidak tersedia di perangkat ini. Gunakan seret layar.')}
+};
+addEventListener('deviceorientation',e=>{if(!gyro||e.beta==null)return;rx=-(e.beta-60);ry=e.gamma*2;apply()});
+
+/* ---------- tutor AI (disimulasikan) ---------- */
+const chat=document.getElementById('chat');
+function msg(t,c){const d=document.createElement('div');d.className='msg '+c;d.textContent=t;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+function bot(t){msg(t,'bot')} function me(t){msg(t,'me')}
+const KB=[
+ [/(beda|bedanya|perbedaan).*(pori|jari)|pori.*jari/,'Pori adalah penampang pembuluh yang tampak sebagai lubang di bidang transversal, sedangkan jari-jari adalah jaringan yang tersusun radial dan tampak sebagai garis di bidang transversal, pita di bidang radial, dan lensa di bidang tangensial. Coba pindah ke bidang transversal lalu tunjukkan mana yang lubang dan mana yang garis.'],
+ [/pori|pembuluh|vessel/,'Pori adalah pembuluh yang dipotong melintang. Perhatikan tiga hal: ukuran, jumlah per area, dan penyebarannya (tata baur, tata lingkar, atau berkelompok). Bidang mana yang paling jelas menampakkan pori?'],
+ [/jari|ray/,'Jari-jari mengarah dari pusat ke kulit. Di bidang tangensial bentuknya seperti lensa, sehingga di situ kamu bisa menghitung berapa lapis sel penyusunnya. Coba buka bidang tangensial dan hitung.'],
+ [/lingkar|tumbuh|growth/,'Lingkaran tumbuh terbentuk karena kayu awal dan kayu akhir berbeda. Di bidang transversal tampak melengkung konsentris, di radial sebagai garis sejajar, dan di tangensial sebagai pola kubah. Menurutmu mengapa polanya berbeda-beda?'],
+ [/transversal|lintang/,'Bidang transversal adalah irisan tegak lurus sumbu batang. Di sini pori, parenkim, jari-jari, dan lingkaran tumbuh terlihat bersamaan, sehingga paling banyak dipakai untuk identifikasi.'],
+ [/radial/,'Bidang radial melewati pusat batang. Ciri khasnya garis lingkaran tumbuh sejajar dan jari-jari seperti pita melintang.'],
+ [/tangensial/,'Bidang tangensial tegak lurus jari-jari. Ciri khasnya pola kubah dan jari-jari berbentuk lensa.'],
+ [/parenkim/,'Parenkim adalah sel berdinding tipis untuk menyimpan cadangan makanan. Pola sebarannya terhadap pori (paratrakeal atau apotrakeal) menjadi ciri identifikasi penting di bidang transversal.'],
+ [/petunjuk|hint|bingung|bantu/,'Mulai dari bidang transversal. Tanyakan pada dirimu: apa bentuk lubangnya, bagaimana penyebarannya, lalu bagaimana arah garis jari-jarinya. Setelah itu cek bidang tangensial untuk bentuk jari-jari.']
+];
+function ask(t){me(t);const k=KB.find(([re])=>re.test(t.toLowerCase()));
+  setTimeout(()=>bot(k?k[1]:'Pertanyaan yang menarik. Coba putar blok ke bidang yang kamu maksud, lalu sebutkan ciri apa yang kamu lihat. Dari situ kita bahas bersama. Kamu juga bisa bertanya tentang pori, jari-jari, parenkim, atau lingkaran tumbuh.'),350)}
+document.getElementById('send').onclick=()=>{const q=document.getElementById('q');if(q.value.trim()){ask(q.value);q.value=''}};
+document.getElementById('q').onkeydown=e=>{if(e.key==='Enter')document.getElementById('send').click()};
+['Bedanya pori dan jari-jari?','Apa itu lingkaran tumbuh?','Beri petunjuk'].forEach(t=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>ask(t);document.getElementById('chips').appendChild(b)});
+bot('Halo! Saya tutor Anatomi Kayu. Putar blok di sebelah kiri, lalu tanyakan apa saja tentang pori, jari-jari, atau lingkaran tumbuh. Saya akan memberi petunjuk, bukan langsung jawaban.');
+
+/* ---------- kuis ---------- */
+let ans,tot=0,ok=0;
+function nextQ(){const ks=['top','front','right'];ans=ks[Math.floor(Math.random()*3)];
+  document.getElementById('quizimg').innerHTML=TEX[ans](Math.floor(Math.random()*90)+10).replace(/^<svg[^>]*>/,'').replace('</svg>','')}
+document.querySelectorAll('#quiz [data-a]').forEach(b=>b.onclick=()=>{tot++;
+  if(b.dataset.a===ans){ok++;bot('Tepat. Apa ciri yang membuatmu yakin? Sebutkan satu.')}
+  else{bot('Belum tepat. Jawaban yang benar: '+INFO[ans].n+'. Petunjuk: '+INFO[ans].p[0]+'.');}
+  document.getElementById('score').textContent=`Skor: ${ok} / ${tot}`;nextQ()});
+nextQ();
+</script>
+</body>
+</html>
